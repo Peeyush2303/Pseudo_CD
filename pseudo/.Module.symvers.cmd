@@ -1,0 +1,1 @@
+savedcmd_/home/engineer/Peeyush/drivers/pseudo/Module.symvers :=  scripts/mod/modpost -m -a      -o /home/engineer/Peeyush/drivers/pseudo/Module.symvers -T /home/engineer/Peeyush/drivers/pseudo/modules.order -i Module.symvers -e 
