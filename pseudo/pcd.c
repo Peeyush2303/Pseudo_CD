@@ -121,24 +121,52 @@ struct class *class_pcd;
 
 static int __init pcd_driver_init(void)
 {
+	int ret;
 	/*1.dynamically allocate the device number*/
-        alloc_chrdev_region(&device_number,0,1,"pcd_devices");
+        ret = alloc_chrdev_region(&device_number,0,1,"pcd_devices");
+  	
+	if(ret<0)
+		pr_err("alloc char_dev failed\n");
+		goto out;	
+	
 	pr_info("Device_number <MAJOR><MINOR> %d:%d\n",MAJOR(device_number),MINOR(device_number));
         
+	
 	/*2. initialize the cdev structure with fops*/
-	pcd_cdev.owner = THIS_MODULE;
 	cdev_init(&pcd_cdev, &pcd_fops);
-	cdev_add(&pcd_cdev,device_number,1);	
 	
-	/*create device class under /sys/class/ */
+	/* 3. Register a device (cdev structure) with VFS */
+	pcd_cdev.owner = THIS_MODULE;
+	ret = cdev_add(&pcd_cdev,device_number,1);	
+	if(ret<0)
+		pr_err("chr_devadd failed\n");
+		goto unreg_chrdev;
+	
+	/*4.create device class under /sys/class/ */
 	class_pcd = class_create("pcd_class");
+	if(IS_ERR(class_pcd))
+		pr_err("class creation failed\n");
+		ret = PTR_ERR(class_pcd);
+		goto cdev_del;
 	
-	/*populate the sysfs with device information */
+	/*5.populate the sysfs with device information */
 	device_pcd = device_create(class_pcd,NULL,device_number,NULL,"pcd");	
+        if(IS_ERR(device_pcd))
+		pr_err("device creation failed\n");
+		ret = PTR_ERR(device_pcd);
+		goto class_des;
 	pr_info("Module init is successfull\n");
 
 	return 0;
-
+class_des:
+	class_destroy(class_pcd);
+cdev_del:
+	cdev_del(&pcd_cdev);
+unreg_chrdev:
+	unregister_chrdev_region(device_number, 1);
+out:
+	pr_err("module instertion failed");
+	return ret;
 }
 
 static void __exit pcd_driver_cleanup(void)
